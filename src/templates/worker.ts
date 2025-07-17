@@ -226,7 +226,17 @@ async function handleMCPConnection(request, env) {
     const tokens = JSON.parse(tokensStr);
     
     // Make API request
-    const apiUrl = new URL('${tool.path}', env.OPENAPI_URL);
+    let path = '${tool.path}';
+    
+    // Replace path parameters
+    for (const [key, value] of Object.entries(params)) {
+      const paramDef = ${JSON.stringify(tool.parameters)}.properties[key];
+      if (paramDef && paramDef.in === 'path') {
+        path = path.replace(\`{\${key}}\`, encodeURIComponent(String(value)));
+      }
+    }
+    
+    const apiUrl = new URL(path, env.OPENAPI_URL);
     
     // Add query parameters
     for (const [key, value] of Object.entries(params)) {

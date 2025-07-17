@@ -2,6 +2,7 @@ import SwaggerParser from '@apidevtools/swagger-parser';
 import { generateMCPServer } from '../lib/generator.js';
 import { deployToCloudflare } from '../lib/cloudflare.js';
 import { discoverOAuthEndpoints } from '../lib/oauth-discovery.js';
+import { convertOpenAPIToTools } from '../lib/openapi-converter.js';
 import type { DeployOptions, DeployResult } from '../types/index.js';
 import chalk from 'chalk';
 
@@ -34,6 +35,13 @@ export async function deploy(options: DeployOptions): Promise<DeployResult> {
     tokenUrl,
     name: options.name || spec.info?.title || 'mcp-server'
   });
+  
+  // Log tools found
+  const tools = convertOpenAPIToTools(spec);
+  console.log(chalk.green(`✓ Converted ${tools.length} API operations to MCP tools`));
+  if (tools.length > 0) {
+    console.log(chalk.gray('  Sample tools:'), tools.slice(0, 3).map(t => t.name).join(', ') + (tools.length > 3 ? '...' : ''));
+  }
   
   // 4. Deploy to Cloudflare
   const deploymentResult = await deployToCloudflare({
