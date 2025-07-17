@@ -151,7 +151,56 @@ async function handleMCPConnection(request, env) {
     userId = authHeader.substring(7); // This would be the actual user ID from JWT
   }
   
-  // Register tools
+  // Register account management tools
+  server.tool('link_account', 'Link your account to use this API', {
+    type: 'object',
+    properties: {},
+    required: []
+  }, async () => {
+    const linkUrl = new URL(request.url).origin + '/oauth/authorize?user_id=' + (userId || crypto.randomUUID());
+    return {
+      content: [{
+        type: 'text',
+        text: \`To link your account, please visit: \${linkUrl}\`
+      }]
+    };
+  });
+  
+  server.tool('check_link_status', 'Check if your account is linked', {
+    type: 'object',
+    properties: {},
+    required: []
+  }, async () => {
+    if (!userId) {
+      return {
+        content: [{
+          type: 'text',
+          text: 'No user ID found. Please use link_account first.'
+        }]
+      };
+    }
+    
+    const tokensStr = await env.KV.get(\`tokens_\${userId}\`);
+    if (tokensStr) {
+      const tokens = JSON.parse(tokensStr);
+      const expiresIn = tokens.expires_at ? Math.round((tokens.expires_at - Date.now()) / 1000 / 60) : 'unknown';
+      return {
+        content: [{
+          type: 'text',
+          text: \`✅ Account is linked! Token expires in \${expiresIn} minutes.\`
+        }]
+      };
+    } else {
+      return {
+        content: [{
+          type: 'text',
+          text: '❌ Account not linked. Please use link_account to connect.'
+        }]
+      };
+    }
+  });
+  
+  // Register API tools
   ${tools.map(tool => `
   server.tool('${tool.name}', '${tool.description}', ${JSON.stringify(tool.parameters)}, async (params) => {
     // Get user's API token
@@ -159,7 +208,7 @@ async function handleMCPConnection(request, env) {
       return {
         content: [{
           type: 'text',
-          text: 'Please link your account first: ' + new URL(request.url).origin + '/oauth/authorize?user_id=' + crypto.randomUUID()
+          text: '❌ No user session found. Please use the "link_account" tool first to connect your account.'
         }]
       };
     }
@@ -169,7 +218,7 @@ async function handleMCPConnection(request, env) {
       return {
         content: [{
           type: 'text',
-          text: 'Please link your account first: ' + new URL(request.url).origin + '/oauth/authorize?user_id=' + userId
+          text: '❌ Account not linked. Please use the "link_account" tool to connect your account.'
         }]
       };
     }
