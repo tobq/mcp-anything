@@ -33,6 +33,38 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 };
 
+async function refreshAccessToken(env, refreshToken) {
+  try {
+    const response = await fetch('${oauth.tokenUrl}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + btoa(\`\${env.CLIENT_ID}:\${env.CLIENT_SECRET}\`)
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken
+      })
+    });
+    
+    if (!response.ok) {
+      console.error('Token refresh failed:', response.status);
+      return null;
+    }
+    
+    const tokens = await response.json();
+    
+    return {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token || refreshToken, // Some providers don't return new refresh token
+      expires_at: Date.now() + (tokens.expires_in * 1000)
+    };
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -205,25 +237,41 @@ async function handleMCPConnection(request, env) {
   server.tool('${tool.name}', '${tool.description}', ${JSON.stringify(tool.parameters)}, async (params) => {
     // Get user's API token
     if (!userId) {
+      const linkUrl = new URL(request.url).origin + '/oauth/authorize?user_id=' + crypto.randomUUID();
       return {
         content: [{
           type: 'text',
-          text: '❌ No user session found. Please use the "link_account" tool first to connect your account.'
+          text: \`❌ No user session found. Please use the "link_account" tool first, or visit: \${linkUrl}\`
         }]
       };
     }
     
     const tokensStr = await env.KV.get(\`tokens_\${userId}\`);
     if (!tokensStr) {
+      const linkUrl = new URL(request.url).origin + '/oauth/authorize?user_id=' + userId;
       return {
         content: [{
           type: 'text',
-          text: '❌ Account not linked. Please use the "link_account" tool to connect your account.'
+          text: \`❌ Account not linked. Please use the "link_account" tool, or visit: \${linkUrl}\`
         }]
       };
     }
     
-    const tokens = JSON.parse(tokensStr);
+    let tokens = JSON.parse(tokensStr);
+    
+    // Check if token is expired and try to refresh
+    if (tokens.expires_at && Date.now() > tokens.expires_at && tokens.refresh_token) {
+      console.log('Token expired, attempting refresh...');
+      const refreshed = await refreshAccessToken(env, tokens.refresh_token);
+      if (refreshed) {
+        tokens = refreshed;
+        await env.KV.put(
+          \`tokens_\${userId}\`,
+          JSON.stringify(tokens),
+          { expirationTtl: 86400 * 30 }
+        );
+      }
+    }
     
     // Make API request
     let path = '${tool.path}';
@@ -274,6 +322,17 @@ async function handleMCPConnection(request, env) {
       const data = await response.json();
       
       if (!response.ok) {
+        // Handle 401 Unauthorized - prompt to re-authenticate
+        if (response.status === 401) {
+          const linkUrl = new URL(request.url).origin + '/oauth/authorize?user_id=' + userId;
+          return {
+            content: [{
+              type: 'text',
+              text: \`🔒 Authentication failed. Your token may have expired. Please re-authenticate using the "link_account" tool or visit: \${linkUrl}\`
+            }]
+          };
+        }
+        
         return {
           content: [{
             type: 'text',
