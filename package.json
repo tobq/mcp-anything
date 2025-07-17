@@ -1,0 +1,53 @@
+{
+  "name": "mcp-anything",
+  "version": "0.1.0",
+  "description": "",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "mcp-anything": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/cli.ts",
+    "start": "node dist/cli.js",
+    "lint": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tobq/mcp-anything.git"
+  },
+  "keywords": [
+    "mcp",
+    "openapi",
+    "claude",
+    "ai",
+    "cloudflare"
+  ],
+  "author": "tobq",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tobq/mcp-anything/issues"
+  },
+  "homepage": "https://github.com/tobq/mcp-anything#readme",
+  "dependencies": {
+    "@apidevtools/swagger-parser": "^12.0.0",
+    "@cloudflare/workers-types": "^4.20250715.0",
+    "@modelcontextprotocol/sdk": "^1.15.1",
+    "axios": "^1.10.0",
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "openapi-types": "^12.1.3",
+    "ora": "^8.2.0",
+    "simple-oauth2": "^5.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.14",
+    "esbuild": "^0.25.6",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.25.0"
+  }
+}

@@ -1,0 +1,9 @@
+src/
+examples/
+.idea/
+.git/
+.gitignore
+tsconfig.json
+*.log
+.env
+.env.local
